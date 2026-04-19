@@ -1,7 +1,7 @@
 from telegram import Update
 from telegram.ext import Application, MessageHandler, filters, ContextTypes
 
-TOKEN = '8248495057:AAF8D20-moOxOSEZVsTzuDjpVNMUvSQqWg'  # Замените на новый токен!
+TOKEN = '8248495057:AAF8D20-moOxOSEZVsTzuDjpVNMUvSQqgWo'  # Замените на новый токен!
 ALLOWED_USER_ID = 6595788533
 
 # Таблица замен похожих букв (латиница -> кириллица)
