@@ -2,7 +2,7 @@ from telegram import Update
 from telegram.ext import Application, MessageHandler, filters, ContextTypes
 import re
 
-TOKEN = 'НОВЫЙ_ТОКЕН_СЮДА'
+TOKEN = '8248495057:AAF8D20-moOxOSEZVsTzuDjpVNMUvSQqgWo'
 ALLOWED_USER_ID = 6595788533
 
 def god_mode_normalize(text: str) -> str:
