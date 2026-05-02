@@ -90,24 +90,49 @@ def contains_forbidden(text: str) -> bool:
             return True
     return False
 
-async def check_and_delete(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if update.message.from_user.id == ALLOWED_USER_ID:
+async def check_and_delete_message(message, update: Update, context: ContextTypes.DEFAULT_TYPE, event_type: str = "message"):
+    """Общая функция для проверки и удаления сообщения"""
+    if message.from_user.id == ALLOWED_USER_ID:
         return
-    if update.message.from_user.is_bot:
+    if message.from_user.is_bot:
         return
-    text = update.message.text or ''
+    
+    text = message.text or ''
     if contains_forbidden(text):
         try:
-            await update.message.delete()
-            print(f"✅ УДАЛЕНО: {text}")
+            await message.delete()
+            print(f"✅ УДАЛЕНО ({event_type}): {text}")
         except Exception as e:
-            print(f"❌ Ошибка: {e}")
+            print(f"❌ Ошибка при удалении ({event_type}): {e}")
+
+async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Обработка новых сообщений"""
+    if update.message:
+        await check_and_delete_message(update.message, update, context, "new")
+
+async def handle_edited_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Обработка отредактированных сообщений"""
+    if update.edited_message:
+        await check_and_delete_message(update.edited_message, update, context, "edited")
 
 def main():
     app = Application.builder().token(TOKEN).build()
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, check_and_delete))
+    
+    # Обработчик новых сообщений
+    app.add_handler(MessageHandler(
+        filters.TEXT & ~filters.COMMAND & ~filters.UpdateType.EDITED_MESSAGE,
+        handle_message
+    ))
+    
+    # Обработчик отредактированных сообщений
+    app.add_handler(MessageHandler(
+        filters.TEXT & ~filters.COMMAND & filters.UpdateType.EDITED_MESSAGE,
+        handle_edited_message
+    ))
+    
     print("🚀 Бот запущен")
     print(f"🛡️ Иммунитет у ID: {ALLOWED_USER_ID}")
+    print("📝 Проверяются и новые, и отредактированные сообщения")
     app.run_polling()
 
 if __name__ == '__main__':
