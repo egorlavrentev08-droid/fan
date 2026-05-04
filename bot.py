@@ -3,8 +3,8 @@ import time
 import threading
 from datetime import datetime, timedelta
 
-# Замените 'YOUR_BOT_TOKEN' на токен вашего бота
-BOT_TOKEN = 'YOUR_BOT_TOKEN'
+# токен
+BOT_TOKEN = '8248495057:AAF8D20-moOxOSEZVsTzuDjpVNMUvSQqgWo'
 bot = telebot.TeleBot(BOT_TOKEN)
 
 # Словарь для хранения сообщений: {chat_id: [(message_id, timestamp), ...]}
