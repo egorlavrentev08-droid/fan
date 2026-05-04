@@ -1,260 +1,88 @@
-from telegram import Update
-from telegram.ext import Application, MessageHandler, filters, ContextTypes
-import re
-from difflib import SequenceMatcher
+import telebot
+import time
+import threading
+from datetime import datetime, timedelta
 
-TOKEN = '8248495057:AAF8D20-moOxOSEZVsTzuDjpVNMUvSQqgWo'
-ALLOWED_USER_ID = 6595788533
+# Замените 'YOUR_BOT_TOKEN' на токен вашего бота
+BOT_TOKEN = 'YOUR_BOT_TOKEN'
+bot = telebot.TeleBot(BOT_TOKEN)
 
-def god_mode_normalize(text: str) -> str:
-    """Режим Бога — распознаёт абсолютно всё"""
-    original = text
-    
-    # 0. Сохраняем оригинал для лога, но работаем с копией
-    text = text.lower()
-    
-    # 1. Удаляем все пробельные символы
-    text = re.sub(r'[\s\n\r\t\v\f]', '', text)
-    
-    # 1.5. Обработка эмодзи-букв и вариационных селекторов
-    emoji_letters = {
-        '🅰': 'а', '🅱': 'б', '🅲': 'с', '🅳': 'д', '🅴': 'е',
-        '🅵': 'ф', '🅶': 'г', '🅷': 'х', '🅸': 'и', '🅹': 'й',
-        '🅺': 'к', '🅻': 'л', '🅼': 'м', '🅽': 'н', '🅾': 'о',
-        '🅿': 'п', '🆀': 'к', '🆁': 'р', '🆂': 'с', '🆃': 'т',
-        '🆄': 'у', '🆅': 'в', '🆆': 'в', '🆇': 'кс', '🆈': 'ы',
-        '🆉': 'з', '🇦': 'а', '🇧': 'б', '🇨': 'с', '🇩': 'д',
-        '🇪': 'е', '🇫': 'ф', '🇬': 'г', '🇭': 'х', '🇮': 'и',
-        '🇯': 'й', '🇰': 'к', '🇱': 'л', '🇲': 'м', '🇳': 'н',
-        '🇴': 'о', '🇵': 'п', '🇶': 'к', '🇷': 'р', '🇸': 'с',
-        '🇹': 'т', '🇺': 'у', '🇻': 'в', '🇼': 'в', '🇽': 'кс',
-        '🇾': 'ы', '🇿': 'з', '🅰️': 'а', '🅵️': 'ф', '🅽️': 'н', '🅃️': 'т',
-    }
-    for old, new in emoji_letters.items():
-        text = text.replace(old, new)
-    
-    # Удаляем модификаторы (цвет кожи, вариационные селекторы)
-    text = re.sub(r'[\U0001F3FB-\U0001F3FF]', '', text)  # тона кожи
-    text = re.sub(r'️', '', text)  # вариационный селектор
-    text = re.sub(r'[\uFE00-\uFE0F]', '', text)  # другие вариационные селекторы
-    
-    # 1.6. Обработка надстрочных и подстрочных символов
-    superscript_subscript = {
-        'ⁿ': 'н', '⁰': 'о', '¹': 'а', '²': 'в', '³': 'е',
-        '⁴': 'ч', '⁵': 'и', '⁶': 'ш', '⁷': 'т', '⁸': 'в',
-        '⁹': 'д', '₀': 'о', '₁': 'а', '₂': 'в', '₃': 'е',
-        '₄': 'ч', '₅': 'и', '₆': 'ш', '₇': 'т', '₈': 'в',
-        '₉': 'д', 'ª': 'а', 'º': 'о',
-    }
-    for old, new in superscript_subscript.items():
-        text = text.replace(old, new)
-    
-    # 1.7. Обработка латинских букв с диакритиками и спецсимволов
-    latin_extended = {
-        'ɲ': 'н', 'ŋ': 'н', 'ñ': 'н', 'ń': 'н', 'ņ': 'н',
-        'ƒ': 'ф', 'ſ': 'с', 'ß': 'с', 'ð': 'д', 'þ': 'т',
-        'ø': 'о', 'œ': 'о', 'æ': 'а', 'å': 'а', 'ã': 'а',
-        'ā': 'а', 'ă': 'а', 'ą': 'а', 'ç': 'с', 'ć': 'с',
-        'č': 'ч', 'đ': 'д', 'ē': 'е', 'ĕ': 'е', 'ė': 'е',
-        'ę': 'е', 'ě': 'е', 'ğ': 'г', 'ģ': 'г', 'ġ': 'г',
-        'ħ': 'х', 'ī': 'и', 'ĭ': 'и', 'į': 'и', 'ı': 'и',
-        'ķ': 'к', 'ĺ': 'л', 'ļ': 'л', 'ľ': 'л', 'ł': 'л',
-        'ń': 'н', 'ņ': 'н', 'ň': 'н', 'ŉ': 'н', 'ŋ': 'н',
-        'ō': 'о', 'ŏ': 'о', 'ő': 'о', 'œ': 'о', 'ø': 'о',
-        'ŕ': 'р', 'ŗ': 'р', 'ř': 'р', 'ś': 'с', 'ŝ': 'с',
-        'ş': 'с', 'š': 'ш', 'ţ': 'т', 'ť': 'т', 'ŧ': 'т',
-        'ū': 'у', 'ŭ': 'у', 'ů': 'у', 'ű': 'у', 'ų': 'у',
-        'ŵ': 'в', 'ý': 'ы', 'ÿ': 'й', 'ŷ': 'ы', 'ž': 'ж',
-        'ʒ': 'ж', 'ð': 'д', 'þ': 'т',
-    }
-    for old, new in latin_extended.items():
-        text = text.replace(old, new)
-    
-    # 2. Замена буквы Ф
-    f_variants = {
-        '∅': 'ф', 'ø': 'ф', 'Ø': 'ф',
-        'ф': 'ф', 'φ': 'ф', 'ϕ': 'ф', 'ph': 'ф',
-    }
-    for old, new in f_variants.items():
-        text = text.replace(old, new)
-    
-    # 3. Греческие и математические символы + ASCII-арт комбинации
-    symbol_map = {
-        'α': 'а', 'β': 'в', 'γ': 'г', 'δ': 'д', 'Δ': 'д',
-        'ε': 'е', 'ζ': 'з', 'η': 'н', 'θ': 'т', 'ι': 'и',
-        'κ': 'к', 'λ': 'л', 'μ': 'м', 'ν': 'н', 'ξ': 'кс',
-        'ο': 'о', 'π': 'п', 'ρ': 'р', 'σ': 'с', 'τ': 'т',
-        'υ': 'у', 'φ': 'ф', 'χ': 'х', 'ψ': 'пс', 'ω': 'о',
-        '∀': 'а', '∃': 'е', '∅': 'ф', 'ø': 'ф', 'Ø': 'ф',
-        '∈': 'в', '∩': 'н', '∪': 'о', '⊥': 'т', '∠': 'у',
-        '|-|': 'н', '|_|': 'п', '/\\': 'л', '\\/': 'л',
-        '|': '', '-': '', '_': '', '/': '', '\\': '',
-        '=': '', '+': '', '^': '', '~': '', '`': '',
-    }
-    for old, new in sorted(symbol_map.items(), key=lambda x: -len(x[0])):
-        text = text.replace(old, new)
-    
-    # 3.5. Дополнительная очистка от символов ASCII-арта
-    text = re.sub(r'[\\/\|_\-=+~`]', '', text)
-    
-    # 4. Японский
-    japanese_map = {
-        'ファ': 'фа', 'フ': 'ф', 'ア': 'а', 'ナ': 'н', 'ン': 'н',
-        'タ': 'т', 'ト': 'т', 'ふぁ': 'фа', 'ふ': 'ф',
-    }
-    for jap, rus in japanese_map.items():
-        text = text.replace(jap, rus)
-    
-    # 5. Названия букв
-    letter_names = {
-        'эф': 'ф', 'еф': 'ф', 'ef': 'ф', 'а': 'а', 'эй': 'а',
-        'эн': 'н', 'ен': 'н', 'тэ': 'т', 'те': 'т', 'ат': 'т',
-    }
-    for _ in range(3):
-        for name, letter in letter_names.items():
-            text = text.replace(name, letter)
-    
-    # 6. Leet
-    leet = {
-        '4': 'а', '3': 'е', '1': 'и', '0': 'о', '7': 'т',
-        '@': 'а', '$': 'с', '#': '', '*': '', '∆': 'д',
-    }
-    for old, new in leet.items():
-        text = text.replace(old, new)
-    
-    # 7. Латынь -> Кириллица
-    eng_to_rus = {
-        'f': 'ф', 'a': 'а', 'n': 'н', 't': 'т', 'p': 'п',
-        'h': 'х', 'e': 'е', 'o': 'о', 'c': 'с', 'b': 'в',
-        'k': 'к', 'm': 'м', 'i': 'и', 'u': 'у', 'g': 'г',
-        'd': 'д', 'j': 'ж', 'l': 'л', 'r': 'р', 's': 'с',
-        'v': 'в', 'w': 'в', 'x': 'кс', 'z': 'з'
-    }
-    for eng, rus in eng_to_rus.items():
-        text = text.replace(eng, rus)
-    
-    # 8. Исправление типичных замен гласных
-    vowel_fixes = {
-        'о': 'а',  # фонат -> фанат
-        'у': 'а',  # фунат -> фанат
-        'ы': 'и',  # фынат -> финат
-        'е': 'и',  # фенат -> финат
-        'ю': 'у',  # фюнат -> фунат -> фанат
-        'я': 'а',  # фянат -> фанат
-        'ё': 'е',  # фёнат -> фенат -> финат
-    }
-    for old, new in vowel_fixes.items():
-        text = text.replace(old, new)
-    
-    # 9. Удаляем всё, кроме русских букв
-    text = re.sub(r'[^а-яё]', '', text)
-    
-    # 10. Убираем повторы
-    text = re.sub(r'(.)\1+', r'\1', text)
-    
-    print(f"Нормализация: '{original}' -> '{text}'")
-    return text
+# Словарь для хранения сообщений: {chat_id: [(message_id, timestamp), ...]}
+messages = {}
 
-def fuzzy_contains_forbidden(text: str) -> bool:
-    """Нечёткий поиск запрещённых слов"""
-    normalized = god_mode_normalize(text)
-    if len(normalized) < 2:
-        return False
-    
-    targets = ['фанат', 'фанаты', 'фан']
-    
-    # Прямые вхождения
-    for target in targets:
-        if target in normalized:
-            print(f"✅ Прямое совпадение: {target}")
-            return True
-    
-    # Нечёткое совпадение для каждого целевого слова
-    for target in targets:
-        target_len = len(target)
-        
-        # Проверяем все подстроки подходящей длины
-        for i in range(len(normalized) - target_len + 1):
-            substring = normalized[i:i+target_len]
-            ratio = SequenceMatcher(None, substring, target).ratio()
-            if ratio > 0.7:  # 70% схожести достаточно
-                print(f"⚠️ Нечёткое совпадение: '{substring}' ≈ '{target}' (схожесть {ratio:.2f})")
-                return True
-        
-        # Также проверяем более длинные строки (если вставлены лишние буквы)
-        for i in range(len(normalized) - target_len - 2 + 1):
-            if i + target_len + 2 <= len(normalized):
-                substring = normalized[i:i+target_len+2]
-                ratio = SequenceMatcher(None, substring, target).ratio()
-                if ratio > 0.65:
-                    print(f"⚠️ Нечёткое совпадение (с лишними буквами): '{substring}' ≈ '{target}' (схожесть {ratio:.2f})")
-                    return True
-    
-    # Особая проверка: наличие букв ф, а, н в правильном порядке
-    # Ищем паттерн: ф, потом а (или любая гласная), потом н
-    pattern_fan = r'ф[аоуыэяюие]*[аоуыэяюие]?н'
-    if re.search(pattern_fan, normalized):
-        print(f"⚠️ Совпадение по паттерну 'ф*н': {re.search(pattern_fan, normalized).group()}")
-        return True
-    
-    # Проверка на анаграммы (например, "танфа" -> "фанат" не сработает, но можно добавить)
-    # Сортируем буквы и сравниваем с отсортированным целевым словом
-    sorted_normalized = ''.join(sorted(normalized))
-    for target in targets:
-        sorted_target = ''.join(sorted(target))
-        if sorted_target in sorted_normalized and len(normalized) <= len(target) + 2:
-            print(f"⚠️ Анаграмма/перестановка: {normalized} ~ {target}")
-            return True
-    
-    return False
+# Время жизни сообщения в секундах (3 минуты)
+MESSAGE_LIFETIME = 3 * 60
 
-async def check_and_delete_message(message, update: Update, context: ContextTypes.DEFAULT_TYPE, event_type: str = "message"):
-    """Общая функция для проверки и удаления сообщения"""
-    if message.from_user.id == ALLOWED_USER_ID:
+# Команда /start
+@bot.message_handler(commands=['start'])
+def send_welcome(message):
+    bot.reply_to(message, "Бот запущен. Все сообщения старше 3 минут будут удалены.")
+
+# Обработчик всех новых сообщений
+@bot.message_handler(func=lambda message: True)
+def handle_message(message):
+    chat_id = message.chat.id
+    msg_id = message.message_id
+    now = time.time()
+
+    # Сохраняем сообщение в список чата
+    if chat_id not in messages:
+        messages[chat_id] = []
+    messages[chat_id].append((msg_id, now))
+
+    # Удаляем старые сообщения (в том числе только что добавленное, если оно старше лимита — для подстраховки)
+    delete_old_messages(chat_id)
+
+def delete_old_messages(chat_id):
+    """Удаляет сообщения в указанном чате, которые старше MESSAGE_LIFETIME"""
+    now = time.time()
+    if chat_id not in messages:
         return
-    if message.from_user.is_bot:
-        return
-    
-    text = message.text or ''
-    if fuzzy_contains_forbidden(text):
+
+    to_delete = []
+    remaining = []
+
+    for msg_id, timestamp in messages[chat_id]:
+        if now - timestamp > MESSAGE_LIFETIME:
+            to_delete.append(msg_id)
+        else:
+            remaining.append((msg_id, timestamp))
+
+    messages[chat_id] = remaining
+
+    # Удаляем сообщения по одному (Telegram не позволяет массовое удаление старых сообщений одной командой)
+    for msg_id in to_delete:
         try:
-            await message.delete()
-            print(f"✅ УДАЛЕНО ({event_type}): {text}")
+            bot.delete_message(chat_id, msg_id)
+            time.sleep(0.3)  # чтобы не превысить лимиты API
         except Exception as e:
-            print(f"❌ Ошибка при удалении ({event_type}): {e}")
+            # Ошибка, если сообщение уже удалено или нет прав
+            pass
 
-async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Обработка новых сообщений"""
-    if update.message:
-        await check_and_delete_message(update.message, update, context, "new")
+# Фоновая задача: каждые 10 секунд проверять все чаты
+def periodic_cleanup():
+    while True:
+        time.sleep(10)
+        # Копируем ключи, чтобы избежать изменения словаря во время итерации
+        for chat_id in list(messages.keys()):
+            delete_old_messages(chat_id)
 
-async def handle_edited_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Обработка отредактированных сообщений"""
-    if update.edited_message:
-        await check_and_delete_message(update.edited_message, update, context, "edited")
+# Если бот только запустился — можно очистить историю чата (опционально)
+def clean_initial_messages(chat_id):
+    """Удаляет все сообщения в чате, которые старше лимита (при запуске)"""
+    try:
+        # Получаем последние 100 сообщений (лимит API)
+        updates = bot.get_updates(offset=-1, timeout=1)
+        # Это неидеально, но для быстрого старта — можно пропустить
+        # Или просто положиться на периодическую очистку
+    except:
+        pass
 
-def main():
-    app = Application.builder().token(TOKEN).build()
-    
-    # Обработчик новых сообщений
-    app.add_handler(MessageHandler(
-        filters.TEXT & ~filters.COMMAND & ~filters.UpdateType.EDITED_MESSAGE,
-        handle_message
-    ))
-    
-    # Обработчик отредактированных сообщений
-    app.add_handler(MessageHandler(
-        filters.TEXT & ~filters.COMMAND & filters.UpdateType.EDITED_MESSAGE,
-        handle_edited_message
-    ))
-    
-    print("🚀 Бот запущен")
-    print(f"🛡️ Иммунитет у ID: {ALLOWED_USER_ID}")
-    print("📝 Проверяются и новые, и отредактированные сообщения")
-    print("🔍 Используется нечёткий поиск")
-    print("😀 Поддерживаются эмодзи-буквы (🅰️, 🇫, и т.д.)")
-    print("🎨 Очищается ASCII-арт (|, -, /, \\, _, |_|, /\\ и т.д.)")
-    app.run_polling()
+# Запуск фонового потока для чистки
+thread = threading.Thread(target=periodic_cleanup, daemon=True)
+thread.start()
 
+# Запуск бота
 if __name__ == '__main__':
-    main()
+    print("Бот запущен. Удаляет сообщения старше 3 минут.")
+    bot.infinity_polling()
