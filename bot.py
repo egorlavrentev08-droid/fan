@@ -5,7 +5,7 @@ from aiogram.types import Message
 import asyncio
 
 # Замените на токен вашего бота
-BOT_TOKEN = "YOUR_BOT_TOKEN_HERE"
+BOT_TOKEN = "8248495057:AAF8D20-moOxOSEZVsTzuDjpVNMUvSQqgWo"
 
 # Словарь для хранения активных пользователей {user_id: True}
 active_users = {}
