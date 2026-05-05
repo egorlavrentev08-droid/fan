@@ -1,70 +1,45 @@
-import telebot
-import time
-import threading
-from datetime import datetime
+import logging
+from aiogram import Bot, Dispatcher, types
+from aiogram.filters import Command
+from aiogram.types import Message
+import asyncio
 
-BOT_TOKEN = '8248495057:AAF8D20-moOxOSEZVsTzuDjpVNMUvSQqgWo'
-bot = telebot.TeleBot(BOT_TOKEN)
+# Замените на токен вашего бота
+BOT_TOKEN = "YOUR_BOT_TOKEN_HERE"
 
-MESSAGE_LIFETIME = 2 * 60  # 2 минуты
+# Словарь для хранения активных пользователей {user_id: True}
+active_users = {}
 
-# Храним сообщения: {chat_id: [(msg_id, timestamp), ...]}
-messages = {}
-
-@bot.message_handler(commands=['start'])
-def send_welcome(message):
-    bot.reply_to(message, "✅ Бот запущен. Все сообщения старше 2 минут будут удаляться.")
-
-@bot.message_handler(func=lambda message: True)
-def handle_message(message):
-    chat_id = message.chat.id
-    msg_id = message.message_id
-    now = time.time()
+# Команда /active <код>
+async def active_command(message: Message):
+    user_id = message.from_user.id
+    args = message.text.split()
     
-    # Сохраняем сообщение
-    if chat_id not in messages:
-        messages[chat_id] = []
-    messages[chat_id].append((msg_id, now))
-    
-    # Сразу проверяем, не нужно ли удалить это сообщение (если вдруг оно уже старое)
-    delete_old_messages(chat_id)
+    if len(args) == 2 and args[1] == "700900300":
+        active_users[user_id] = True
+        await message.answer("✅ Активация успешна! Теперь на любое слово я буду отвечать: Связано")
+    else:
+        await message.answer("❌ Неверный код активации.")
 
-def delete_old_messages(chat_id):
-    """Удаляет сообщения старше 2 минут"""
-    if chat_id not in messages:
-        return
-    
-    now = time.time()
-    to_delete = []
-    remaining = []
-    
-    for msg_id, timestamp in messages[chat_id]:
-        if now - timestamp > MESSAGE_LIFETIME:
-            to_delete.append(msg_id)
-        else:
-            remaining.append((msg_id, timestamp))
-    
-    messages[chat_id] = remaining
-    
-    # Удаляем каждое сообщение
-    for msg_id in to_delete:
-        try:
-            bot.delete_message(chat_id, msg_id)
-            print(f"🗑 Удалено сообщение {msg_id} в чате {chat_id}")
-            time.sleep(0.2)  # защита от флуда
-        except Exception as e:
-            print(f"❌ Ошибка удаления {msg_id}: {e}")
+# Обработка всех сообщений (кроме /active)
+async def handle_all_messages(message: Message):
+    user_id = message.from_user.id
 
-def background_cleaner():
-    """Фоновый процесс: каждые 5 секунд проверяет и удаляет"""
-    while True:
-        time.sleep(5)  # проверяем каждые 5 секунд
-        for chat_id in list(messages.keys()):
-            delete_old_messages(chat_id)
+    if active_users.get(user_id, False):
+        await message.answer("Связано")
+    else:
+        await message.answer("💎 Требуется оплата 100 звёзд. Используйте /active <код> для доступа.")
 
-# Запускаем фоновую чистку
-thread = threading.Thread(target=background_cleaner, daemon=True)
-thread.start()
+# Регистрация хендлеров
+async def main():
+    bot = Bot(token=BOT_TOKEN)
+    dp = Dispatcher()
 
-print("🚀 Бот запущен. Удаляет сообщения старше 2 минут.")
-bot.infinity_polling()
+    dp.message.register(active_command, Command(commands=["active"]))
+    dp.message.register(handle_all_messages)
+
+    await dp.start_polling(bot)
+
+if __name__ == "__main__":
+    logging.basicConfig(level=logging.INFO)
+    asyncio.run(main())
