@@ -13,9 +13,9 @@ from telegram.ext import (
 )
 
 # ========== КОНФИГ ==========
-BOT_TOKEN = "YOUR_BOT_TOKEN_HERE"  # Замени на свой токен
-CHAT_ID = -1001234567890  # Замени на ID чата (отрицательное число)
-ADMIN_IDS = {123456789, 987654321}  # ID админов (свой Telegram ID)
+BOT_TOKEN = "8709216323:AAFbjbsLQV2eF_O5uAslTckXUZqbVrn98NE"  # Замени на свой токен
+CHAT_ID = --1003742880726  # Замени на ID чата (отрицательное число)
+ADMIN_IDS = {6595788533}  # ID админов (свой Telegram ID)
 
 # Файл для сохранения данных
 DATA_FILE = "table_data.json"
